@@ -1,16 +1,22 @@
 #!/bin/bash
 
-name=$(curl -s --location --request GET "https://api.etherscan.io/api?module=contract&action=getsourcecode&address=${1}&apikey=${ETHERSCAN_API_KEY}" | jq -r '.result'[0].ContractName)
-folder=$name
-
-if [ $# -gt 2 ]; then
+if [ $# -lt 1 ]; then
+    echo "usage: quickpoc [addr] ([folder])"
+    exit 1
+elif [ $# -gt 2 ]; then
     echo "error: max 2 arguments allowed"
     exit 1
-elif [ $# -eq 2 ]; then
-    folder=$2
 fi
+
+if [ $# -eq 2 ]; then
+    folder=$2
+else
+    name=$(curl -s --location --request GET "https://api.etherscan.io/api?module=contract&action=getsourcecode&address=${1}&apikey=${ETHERSCAN_API_KEY}" | jq -r '.result'[0].ContractName)
+    folder=$name
+fi 
+
 if [ -d ${folder} ]; then
-    echo "error: already folder named $name - enter a custom name as a second arg"
+    echo "error: folder already named $folder"
     exit 1
 fi
 
@@ -18,6 +24,7 @@ forge init $folder --no-commit
 cd $folder
 rm -rf src
 rm -rf script
+rm test/Counter.t.sol
 
 cast etherscan-source -d src --etherscan-api-key $ETHERSCAN_API_KEY $1
 
@@ -30,16 +37,15 @@ do
     fi
 done
 
-rm test/Counter.t.sol
 touch test/POC.t.sol
 
 echo "// SPDX-License-Identifier: MIT" >> test/POC.t.sol
 echo "pragma solidity ^0.8.0;" >> test/POC.t.sol
 echo "" >> test/POC.t.sol
 echo 'import "forge-std/Test.sol";' >> test/POC.t.sol
-for file in $(ls src/${name}/contracts)
+for file in $(find src -type f)
 do
-    echo "import \"../src/$name/contracts/$file\";" >> test/POC.t.sol
+    echo "import \"../$file\";" >> test/POC.t.sol
 done
 echo "" >> test/POC.t.sol
 echo "contract ${name}POC is Test {" >> test/POC.t.sol
