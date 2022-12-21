@@ -8,10 +8,12 @@ elif [ $# -gt 2 ]; then
     exit 1
 fi
 
+address=$(cast --to-checksum-address $1)
+
 if [ $# -eq 2 ]; then
     folder=$2
 else
-    name=$(curl -s --location --request GET "https://api.etherscan.io/api?module=contract&action=getsourcecode&address=${1}&apikey=${ETHERSCAN_API_KEY}" | jq -r '.result'[0].ContractName)
+    name=$(curl -s --location --request GET "https://api.etherscan.io/api?module=contract&action=getsourcecode&address=${address}&apikey=${ETHERSCAN_API_KEY}" | jq -r '.result'[0].ContractName)
     folder=$name
 fi 
 
@@ -26,7 +28,7 @@ rm -rf src
 rm -rf script
 rm test/Counter.t.sol
 
-cast etherscan-source -d src --etherscan-api-key $ETHERSCAN_API_KEY $1
+cast etherscan-source -d src --etherscan-api-key $ETHERSCAN_API_KEY $address
 
 forge remappings > remappings.txt
 for library in $(ls src/${name})
@@ -49,11 +51,11 @@ do
 done
 echo "" >> test/POC.t.sol
 echo "contract ${name}POC is Test {" >> test/POC.t.sol
-echo "  ${name} c = ${name}($1);" >> test/POC.t.sol
+echo "  ${name} c = ${name}($address);" >> test/POC.t.sol
 echo "" >> test/POC.t.sol
 echo "  function test${name}POC() public {" >> test/POC.t.sol
 echo "      vm.createSelectFork('${ETH_RPC_URL}');" >> test/POC.t.sol
-echo "      assert(address(c) == $1);" >> test/POC.t.sol
+echo "      assert(address(c) == $address);" >> test/POC.t.sol
 echo "  }" >> test/POC.t.sol
 echo "}" >> test/POC.t.sol
 
